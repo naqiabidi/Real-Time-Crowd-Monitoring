@@ -17,6 +17,11 @@ The **Real-Time Crowd Monitoring** system is an AI-powered solution that utilize
 - **Frameworks & Libraries**: TensorFlow, OpenCV, NumPy, Pandas
 - **Streaming**: Flask-SocketIO for real-time updates
 
+## 💂️ Screenshots
+### Weapon Detection
+![Weapon Detection](screenshot/weapon_detection.jpg)
+### Crowd Count
+![Crowd Count](screenshot/crowd.jpg)
 
 ## 📂 Project Structure
 ```
