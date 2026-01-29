@@ -1,4 +1,21 @@
 yolov5s.pt
 env
 tailwind.config.js
-src
+# === Node ===
+node_modules/
+
+# === Python virtual environments (ALL cases) ===
+venv/
+.venv/
+backend/venv/
+backend/**/venv/
+
+# === Python cache ===
+__pycache__/
+*.pyc
+
+# === Env files ===
+.env
+
+# ML models
+backend/Real-Time-Crowd-Monitoring/yolov5s.pt
