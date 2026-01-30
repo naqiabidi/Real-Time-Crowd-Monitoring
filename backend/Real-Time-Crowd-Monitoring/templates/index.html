@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Crowd Monitoring</title>
+    
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="text-xl">
+    
+    <nav class=" flex bg-slate-700 justify-between p-3  text-white">
+        <div class=" mx-2 p-2">
+          Real-Time Crowd Monitoring
+        </div>
+        <ul class="flex">
+            <li class="p-2"><!-- Buttons for selecting mode -->
+                <button id="start-crowd" onclick="startCrowdMonitoring()">Start Crowd Counting</button>
+            </li>
+            <li class="p-2"> <!-- Button for starting/stopping facial detection -->
+                <button id="start-face-detection" onclick="toggleFaceDetection()">Start Face Detection</button>
+            </li>
+        </ul>
+    </nav>
+    
+   <div class="flex justify-between">
+    <!-- Video Stream -->
+    <div class="m-6 p-3">
+    <div id="video-container" style="display: none;">
+        <img id="video-stream" class="max-w-200" alt="Video Stream" style="border: 1px solid black;">
+    </div>
+   <div class="flex"> <!-- Display Crowd Count and Weapon Detection -->
+    <h2 class="m-3" id="crowd-count-section" style="display: none;">Crowd Count: <span id="crowd-count">0</span></h2>
+    <h2 class="m-3" id="weapon-detection-section" style="display: none;"><span id="weapon-detected">weapon Detected: No</span></h2>
+   </div>
+  </div>
+    <div class="mr-7">
+    <!-- Crowd Count Graph -->
+    <canvas id="crowd-count-graph" width="600" height="400" style="display: block; margin: 20px auto;"></canvas>
+    </div>
+    </div>
+    <div id="face-detection-container" style="display: none;">
+        <img id="face-detection-video" alt="Face Detection Stream" style="width: 60%; border: 1px solid black;">
+    </div>
+    
+    <script>
+        let crowdCountGraph = null;
+        let crowdCountData = [];
+        let labels = [];
+
+        // Toggle Face Detection
+        // Toggle Face Detection
+function toggleFaceDetection() {
+    fetch('/toggle_face_detection')
+        .then(response => response.json())
+        .then(data => {
+            const statusMessage = data.status;
+            document.getElementById('start-face-detection').innerText = statusMessage === 'Face detection started' ? 'Stop Face Detection' : 'Start Face Detection';
+
+            const faceDetectionContainer = document.getElementById('face-detection-container');
+            if (statusMessage === 'Face detection started') {
+                faceDetectionContainer.style.display = 'block';
+                document.getElementById('face-detection-video').src = "/face_video"; // Ensure this URL is correct
+            } else {
+                faceDetectionContainer.style.display = 'none';
+            }
+        })
+        .catch(error => console.error('Error toggling face detection:', error));
+}
+
+        // Initialize the graph
+        function initializeGraph() {
+            const ctx = document.getElementById('crowd-count-graph').getContext('2d');
+            crowdCountGraph = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Crowd Count',
+                        data: crowdCountData,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Count'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update the graph data
+        function updateGraph(count) {
+            const currentTime = new Date().toLocaleTimeString();
+            labels.push(currentTime);
+            crowdCountData.push(count);
+
+            // Keep only the last 10 data points
+            if (labels.length > 10) {
+                labels.shift();
+                crowdCountData.shift();
+            }
+
+            // Update the graph
+            crowdCountGraph.update();
+        }
+
+        // Fetch crowd count and update graph every 5 seconds
+        function startCrowdMonitoring() {
+            const videoContainer = document.getElementById('video-container');
+            const videoStream = document.getElementById('video-stream');
+            const crowdCountSection = document.getElementById('crowd-count-section');
+            const weaponDetectionSection = document.getElementById('weapon-detection-section');
+
+            videoContainer.style.display = 'block';
+            crowdCountSection.style.display = 'block';
+            weaponDetectionSection.style.display = 'block';
+
+            // Set the video stream to restart
+            videoStream.src = "/video?" + new Date().getTime(); // Adding timestamp to avoid caching
+
+            // Call the server to reset crowd count
+            fetch('/start_crowd_count')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.status);  // Log the status to ensure it's resetting
+                })
+                .catch(error => console.error('Error starting crowd count:', error));
+
+            // Initialize the graph
+            initializeGraph();
+
+            // Periodically fetch and update crowd count every 5 seconds
+            setInterval(() => {
+                fetch('/crowd_count')
+                    .then(response => response.json())
+                    .then(data => {
+                        const count = data.count;
+                        document.getElementById('crowd-count').innerText = count;
+
+                        // Update the graph
+                        updateGraph(count);
+                    })
+                    .catch(error => console.error('Error fetching crowd count:', error));
+
+                // Fetch and update weapon detection status
+                fetch('/weapon_status')
+        .then(response => response.json())
+        .then(data => {
+            const weaponText = document.getElementById('weapon-detected');
+            if (data.weapon_detected) {
+                weaponText.innerText = "Weapon Detected: Yes";
+                weaponText.classList.add("text-red-600", "animate-pulse", "font-bold");
+                weaponText.classList.remove("text-black");
+            } else {
+                weaponText.innerText = "Weapon Detected: No";
+                weaponText.classList.add("text-black");
+                weaponText.classList.remove("text-red-600", "animate-pulse", "font-bold");
+            }
+        })
+        .catch(error => console.error('Error fetching weapon status:', error));
+}, 5000); // 5 seconds interval
+        }
+    </script>
+</body>
+</html>
